@@ -56,6 +56,9 @@ export default function Home() {
   const [transactionId, setTransactionId] =
     useState("");
 
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
   // ==========================================
   // 商品登録
   // ==========================================
@@ -280,19 +283,59 @@ export default function Home() {
   // 最終購入確定
   // ==========================================
 
-  const completePurchase = () => {
-    const newTransactionId =
-      "TR" +
-      Date.now()
-        .toString()
-        .slice(-8);
+  const completePurchase = async () => {
+    if (isSubmitting) {
+      return;
+    }
 
-    setTransactionId(
-      newTransactionId
-    );
+    setIsSubmitting(true);
 
-    setShowConfirmation(false);
-    setPurchaseCompleted(true);
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/purchases",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            member_id:
+              memberChecked && memberId
+                ? memberId
+                : null,
+            items: cart.map((item) => ({
+              product_code: item.productCode,
+              quantity: item.quantity,
+            })),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        alert(
+          result.detail ||
+            "購入処理に失敗しました"
+        );
+        return;
+      }
+
+      setTransactionId(
+        `TR${result.transaction_id}`
+      );
+
+      setShowConfirmation(false);
+      setPurchaseCompleted(true);
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "購入処理に失敗しました"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ==========================================
@@ -577,9 +620,12 @@ export default function Home() {
 
               <button
                 onClick={completePurchase}
-                className="rounded-xl bg-black px-4 py-4 font-bold text-white hover:bg-gray-800"
+                disabled={isSubmitting}
+                className="rounded-xl bg-black px-4 py-4 font-bold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                購入を確定
+                {isSubmitting
+                  ? "購入処理中..."
+                  : "購入を確定"}
               </button>
 
             </div>
